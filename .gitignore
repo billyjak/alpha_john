@@ -132,6 +132,7 @@ celerybeat.pid
 .venv
 env/
 venv/
+kivy_venv/
 ENV/
 env.bak/
 venv.bak/
