@@ -25,6 +25,9 @@ class GameWidget(Widget):
         Clock.schedule_interval(self.update, 1.0 / 60.0)
 
     def on_keystroke_down(self, window, key, scancode, codepoint, modifier):
+        # Quit the app on <ctrl+shift+q>
+        self.quit_app(codepoint, modifier)
+
         shifted_numbers_map = {
             "0": "close_paren", "1": "exclamation_mark", "2": "at", "3": "pound_sign",
             "4": "dollar_sign", "5": "percent", "6": "carat", "7": "ampersand",
@@ -88,6 +91,10 @@ class GameWidget(Widget):
         anim.start(self.char_image)
         self.char_image.current_anim = anim
 
+    def quit_app(self, codepoint, modifier):
+        is_ctrl_shift = all(value in modifier for value in ['ctrl','shift'])
+        if codepoint == 'q' and is_ctrl_shift:
+            App.get_running_app().stop()
 
     def update(self, dt):
         pass
