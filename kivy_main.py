@@ -32,60 +32,81 @@ class GameWidget(Widget):
         Clock.schedule_interval(self.update, 1.0 / 60.0)  # 60 FPS
 
     def on_keystroke_down(self, window, key, scancode, codepoint, modifier):
-        # print(f"key: {key} scancode: {scancode} codepoint: {codepoint} modifier: {modifier}")
+        print(f"key: {key} scancode: {scancode} codepoint: {codepoint} modifier: {modifier}")
+        shifted_numbers_map = {
+            "0": "close_paren",
+            "1": "exclamation_mark",
+            "2": "at",
+            "3": "pound_sign",
+            "4": "dollar_sign",
+            "5": "percent",
+            "6": "carat",
+            "7": "ampersand",
+            "8": "asterisk",
+            "9": "open_paren"
+        }
+        shifted_symbols_map = {
+            "]": "close_curly_brace",
+            ";": "colon",
+            "'": "double_quote",
+            ",": "left_angle_bracket",
+            "[": "open_curly_brace",
+            "\\": "pipe",
+            "=": "plus",
+            "/": "question_mark",
+            ".": "right_angle_bracket",
+            "`": "tilde",
+            "-": "underscore"
+        }
+        symbols_map = {
+            "\\": "backslash",
+            "`": "backtick",
+            "]": "close_square_bracket",
+            ",": "comma",
+            "=": "equals",
+            "-": "minus",
+            "[": "open_square_bracket",
+            ".": "period",
+            ";": "semicolon",
+            "'": "single_quote",
+            "/": "slash",
+        }
+
+        is_shift = 'shift' in modifier
+        char = None
 
         if codepoint and codepoint.isalpha():
-            is_upper = codepoint.isupper()
-            char = codepoint.lower()
+            char = codepoint.upper() if is_shift else codepoint
+        elif codepoint and codepoint.isdigit():
+            char = shifted_numbers_map.get(codepoint) if is_shift else codepoint
+        elif codepoint:
+            char = shifted_symbols_map.get(codepoint) if is_shift else symbols_map.get(codepoint)
 
-            if char not in self.fade_images:
-                img_path = self.asset_manager.get_image(char, is_upper)
+        # Create image widget if it doesn't already exist
+        if char not in self.fade_images:
+            img_path = self.asset_manager.images.get(char)
+            # img_path = self.asset_manager.get_image(char, is_shift)
+            if img_path:
                 self.fade_images[char] = Image(source=img_path, size=(1800,900), fit_mode="contain", opacity=0)
                 self.fade_images[char].center = (self.bg.size[0] / 2, self.bg.size[1] / 2)
                 self.add_widget(self.fade_images[char])
+            else:
+                return True
 
-            sound = self.asset_manager.get_sound(char, is_upper)
-            if sound:
-                sound.play()
 
-            anim = Animation(opacity=1, duration=0.5)
-            anim += Animation(duration=0.8)
-            anim += Animation(opacity=0, duration=1.0)
-            anim.start(self.fade_images[char])
+        # Animate the image
+        anim = Animation(opacity=1, duration=0.5)
+        anim += Animation(duration=0.8)
+        anim += Animation(opacity=0, duration=1.0)
+        anim.start(self.fade_images[char])
 
-        if codepoint and codepoint.isdigit():
-            num = codepoint
-            if num not in self.fade_images:
-                img_path = self.asset_manager.get_image(num)
-                self.fade_images[num] = Image(source=img_path, size=(1800,900), fit_mode="contain", opacity=0)
-                self.fade_images[num].center = (self.bg.size[0] / 2, self.bg.size[1] / 2)
-                self.add_widget(self.fade_images[num])
-
-            sound = self.asset_manager.get_sound(num)
-            if sound:
-                sound.play()
-
-            anim = Animation(opacity=1, duration=0.5)
-            anim += Animation(duration=0.8)
-            anim += Animation(opacity=0, duration=1.0)
-            anim.start(self.fade_images[num])
-
-        if codepoint and not codepoint.isalnum():
-            sym = codepoint
-            if sym not in self.fade_images:
-                img_path = self.asset_manager.get_image(sym)
-                self.fade_images[sym] = Image(source=img_path, size=(1800,900), fit_mode="contain", opacity=0)
-                self.fade_images[sym].center = (self.bg.size[0] / 2, self.bg.size[1] / 2)
-                self.add_widget(self.fade_images[sym])
-
-            sound = self.asset_manager.get_sound(sym)
-            if sound:
-                sound.play()
-
-            anim = Animation(opacity=1, duration=0.5)
-            anim += Animation(duration=0.8)
-            anim += Animation(opacity=0, duration=1.0)
-            anim.start(self.fade_images[sym])
+        # Play sound
+        if char.isalpha():
+            sound = self.asset_manager.sounds.get(char.lower())
+        else:
+            sound = self.asset_manager.sounds.get(char)
+        if sound:
+            sound.play()
 
         return True
 
@@ -103,70 +124,29 @@ class GameApp(App):
 
 class AssetManager:
     def __init__(self):
-        self.lower_images = {}
-        self.upper_images = {}
-        self.numbers = {}
-        self.symbols = {}
+        self.images = {}
         self.sounds = {}
         self.load_assets()
 
     def load_assets(self):
-        # Map characters to image/audio files
-        chars = "abcdefghijklmnopqrstuvwxyz"
-        for char in chars:
-            lower_img_path = f"assets/images/lower/lower_{char}.png"
-            self.lower_images[f"lower_{char}"] = lower_img_path if os.path.exists(lower_img_path) else None
+        # Directories to scan
+        image_dir = "assets/images"
+        sound_dir = "assets/sounds"
 
-            upper_img_path = f"assets/images/upper/upper_{char}.png"
-            self.upper_images[f"upper_{char}"] = upper_img_path if os.path.exists(upper_img_path) else None
+        # Load images
+        if os.path.exists(image_dir):
+            for filename in os.listdir(image_dir):
+                if filename.endswith(".png"):
+                    asset_name = filename.replace('.png', '')
+                    self.images[asset_name] = os.path.join(image_dir, filename)
 
-            sound_path = f"assets/sounds/lower/lower_{char}.mp3"
-            self.sounds[f"lower_{char}"] = SoundLoader.load(sound_path) if os.path.exists(sound_path) else None
 
-        # Map numbers to image/audio files
-        numbers = "0123456789"
-        for num in numbers:
-            num_path = f"assets/images/numbers/numbers_{num}.png"
-            self.numbers[f"numbers_{num}"] = num_path if os.path.exists(num_path) else None
-
-            sound_path = f"assets/sounds/numbers/numbers_{num}.mp3"
-            self.sounds[f"numbers_{num}"] = SoundLoader.load(sound_path) if os.path.exists(sound_path) else None
-
-        # Map symbols to image/audio files
-        symbols = "!@#$%"
-        for sym in symbols:
-            sym_path = f"assets/images/symbols/symbols_{sym}.png"
-            self.symbols[f"symbols_{sym}"] = sym_path if os.path.exists(sym_path) else None
-
-            sound_path = f"assets/sounds/symbols/symbols_{sym}.mp3"
-            self.sounds[f"symbols_{sym}"] = SoundLoader.load(sound_path) if os.path.exists(sound_path) else None
-
-    def get_image(self, val, is_upper=False):
-        if val.isalpha():
-            if is_upper:
-                key = f"upper_{val.lower()}"
-                return self.upper_images.get(key)
-            else:
-                key = f"lower_{val.lower()}"
-            return self.lower_images.get(key)
-        if val.isdigit():
-            print(f"line 128: we arrived, val is digit: {val}")
-            key = f"numbers_{val}"
-            return self.numbers.get(key)
-        if val and not val.isalnum():
-            key = f"symbols_{val}"
-            return self.symbols.get(key)
-
-    def get_sound(self, val, is_upper=False):
-        if val.isalpha():
-            key = f"lower_{val.lower()}"
-            return self.sounds.get(key)
-        if val.isdigit():
-            key = f"numbers_{val}"
-            return self.sounds.get(key)
-        if val and not val.isalnum():
-            key = f"symbols_{val}"
-            return self.sounds.get(key)
+        # Load sounds
+        if os.path.exists(sound_dir):
+            for filename in os.listdir(sound_dir):
+                if filename.endswith(".mp3"):
+                    asset_name = filename.replace('.mp3', '')
+                    self.sounds[asset_name] = SoundLoader.load(os.path.join(sound_dir, filename))
 
 if __name__ == "__main__":
     GameApp().run()
