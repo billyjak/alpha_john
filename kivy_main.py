@@ -12,64 +12,33 @@ class GameWidget(Widget):
         super().__init__(**kwargs)
 
         self.asset_manager = AssetManager()
-        self.fade_images = {}  # Store Image widgets for each character
+        self.current_sound = None  # Track the currently playing sound
 
-        # Load mountains PNG background
-        self.bg = Image(source="./assets/images/background/mountains_purple_trees.png", size=(1920,1080), fit_mode="contain")
-
-        # add children widgets
-        self.add_widget(self.bg)
-
-        # add background music to ensure it's running
-        self.music = SoundLoader.load("./assets/sounds/background/moonlight.mp3")
-        self.music.loop = True
-        self.music.play()
+        load_background_image(self)
+        load_background_music(self)
+        add_image_widget(self)
 
         # Bind keyboard input
         Window.bind(on_key_down=self.on_keystroke_down)
-
         # Update for smooth movement
-        Clock.schedule_interval(self.update, 1.0 / 60.0)  # 60 FPS
+        Clock.schedule_interval(self.update, 1.0 / 60.0)
 
     def on_keystroke_down(self, window, key, scancode, codepoint, modifier):
-        print(f"key: {key} scancode: {scancode} codepoint: {codepoint} modifier: {modifier}")
         shifted_numbers_map = {
-            "0": "close_paren",
-            "1": "exclamation_mark",
-            "2": "at",
-            "3": "pound_sign",
-            "4": "dollar_sign",
-            "5": "percent",
-            "6": "carat",
-            "7": "ampersand",
-            "8": "asterisk",
-            "9": "open_paren"
+            "0": "close_paren", "1": "exclamation_mark", "2": "at", "3": "pound_sign",
+            "4": "dollar_sign", "5": "percent", "6": "carat", "7": "ampersand",
+            "8": "asterisk", "9": "open_paren"
         }
         shifted_symbols_map = {
-            "]": "close_curly_brace",
-            ";": "colon",
-            "'": "double_quote",
-            ",": "left_angle_bracket",
-            "[": "open_curly_brace",
-            "\\": "pipe",
-            "=": "plus",
-            "/": "question_mark",
-            ".": "right_angle_bracket",
-            "`": "tilde",
-            "-": "underscore"
+            "]": "close_curly_brace", ";": "colon", "'": "double_quote",
+            ",": "left_angle_bracket", "[": "open_curly_brace", "\\": "pipe",
+            "=": "plus", "/": "question_mark", ".": "right_angle_bracket",
+            "`": "tilde", "-": "underscore"
         }
         symbols_map = {
-            "\\": "backslash",
-            "`": "backtick",
-            "]": "close_square_bracket",
-            ",": "comma",
-            "=": "equals",
-            "-": "minus",
-            "[": "open_square_bracket",
-            ".": "period",
-            ";": "semicolon",
-            "'": "single_quote",
-            "/": "slash",
+            "\\": "backslash", "`": "backtick", "]": "close_square_bracket",
+            ",": "comma", "=": "equals", "-": "minus", "[": "open_square_bracket",
+            ".": "period", ";": "semicolon", "'": "single_quote", "/": "slash"
         }
 
         is_shift = 'shift' in modifier
@@ -82,36 +51,43 @@ class GameWidget(Widget):
         elif codepoint:
             char = shifted_symbols_map.get(codepoint) if is_shift else symbols_map.get(codepoint)
 
-        # Create image widget if it doesn't already exist
-        if char not in self.fade_images:
-            img_path = self.asset_manager.images.get(char)
-            # img_path = self.asset_manager.get_image(char, is_shift)
-            if img_path:
-                self.fade_images[char] = Image(source=img_path, size=(1800,900), fit_mode="contain", opacity=0)
-                self.fade_images[char].center = (self.bg.size[0] / 2, self.bg.size[1] / 2)
-                self.add_widget(self.fade_images[char])
-            else:
-                return True
+        if not char:
+            return True
 
+        # Update the single character image
+        img_path = self.asset_manager.images.get(char)
+        if img_path:
+            self.char_image.source = img_path  # Replace the image
+            # Cancel any running animation
+            if self.char_image.current_anim:
+                self.char_image.current_anim.cancel(self.char_image)
+            self.start_animation()
+        else:
+            return True
 
-        # Animate the image
-        anim = Animation(opacity=1, duration=0.5)
-        anim += Animation(duration=0.8)
-        anim += Animation(opacity=0, duration=1.0)
-        anim.start(self.fade_images[char])
+        self.play_sound(char)
 
-        # Play sound
+        return True
+
+    def play_sound(self, char):
+        if self.current_sound:
+            self.current_sound.stop()
         if char.isalpha():
             sound = self.asset_manager.sounds.get(char.lower())
         else:
             sound = self.asset_manager.sounds.get(char)
         if sound:
             sound.play()
+            self.current_sound = sound
 
-        return True
+    def start_animation(self):
+        anim = Animation(opacity=1, duration=0.5)
+        anim += Animation(duration=0.8)
+        anim += Animation(opacity=0, duration=1.0)
+        anim.start(self.char_image)
+        self.char_image.current_anim = anim
 
-    def on_key_up(window, key, scancode):
-        # print(f"args: {args}")
+    def on_key_up(self, window, key, scancode):
         return True
 
     def update(self, dt):
@@ -126,27 +102,39 @@ class AssetManager:
     def __init__(self):
         self.images = {}
         self.sounds = {}
-        self.load_assets()
+        load_images(self, "assets/images")
+        load_sounds(self, "assets/sounds")
 
-    def load_assets(self):
-        # Directories to scan
-        image_dir = "assets/images"
-        sound_dir = "assets/sounds"
+def load_images(manager, image_dir):
+    # Load images
+    if os.path.exists(image_dir):
+        for filename in os.listdir(image_dir):
+            if filename.endswith(".png"):
+                asset_name = filename.replace('.png', '')
+                manager.images[asset_name] = os.path.join(image_dir, filename)
 
-        # Load images
-        if os.path.exists(image_dir):
-            for filename in os.listdir(image_dir):
-                if filename.endswith(".png"):
-                    asset_name = filename.replace('.png', '')
-                    self.images[asset_name] = os.path.join(image_dir, filename)
+def load_sounds(manager, sound_dir):
+    if os.path.exists(sound_dir):
+        for filename in os.listdir(sound_dir):
+            if filename.endswith(".mp3"):
+                asset_name = filename.replace('.mp3', '')
+                manager.sounds[asset_name] = SoundLoader.load(os.path.join(sound_dir, filename))
 
+def load_background_image(self):
+    self.bg = Image(source="./assets/images/background/mountains_purple_trees.png", size=(1920, 1080), fit_mode="contain")
+    self.add_widget(self.bg)
 
-        # Load sounds
-        if os.path.exists(sound_dir):
-            for filename in os.listdir(sound_dir):
-                if filename.endswith(".mp3"):
-                    asset_name = filename.replace('.mp3', '')
-                    self.sounds[asset_name] = SoundLoader.load(os.path.join(sound_dir, filename))
+def load_background_music(self):
+    # Background music
+    self.music = SoundLoader.load("./assets/sounds/background/moonlight.mp3")
+    self.music.loop = True
+    self.music.play()
+
+def add_image_widget(self):
+    self.char_image = Image(size=(1800, 900), fit_mode="contain", opacity=0)
+    self.char_image.center = (self.bg.size[0] / 2, self.bg.size[1] / 2)
+    self.char_image.current_anim = None
+    self.add_widget(self.char_image)
 
 if __name__ == "__main__":
     GameApp().run()
