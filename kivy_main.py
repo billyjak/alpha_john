@@ -70,16 +70,23 @@ class GameWidget(Widget):
 
         return True
 
-    def play_sound(self, char):
-        if self.current_sound:
-            self.current_sound.stop()
-        if char.isalpha():
-            sound = self.asset_manager.sounds.get(char.lower())
-        else:
-            sound = self.asset_manager.sounds.get(char)
+    def play_sound(widget, char):
+        if widget.current_sound:
+            widget.current_sound.stop()
+            widget.current_sound = None
+
+        sound_key = char.lower() if char.isalpha() else char
+        sound = widget.asset_manager.get_sound(sound_key)
         if sound:
+            def on_sound_stop(instance):
+                instance.unload()
+                if sound_key in widget.asset_manager.loaded_sounds:
+                    del widget.asset_manager.loaded_sounds[sound_key]
+                widget.current_sound = None
+
+            sound.bind(on_stop=on_sound_stop)
             sound.play()
-            self.current_sound = sound
+            widget.current_sound = sound
 
     def start_animation(self):
         anim = Animation(opacity=1, duration=0.5)
@@ -101,23 +108,36 @@ class AssetManager:
     def __init__(self):
         self.images = {}
         self.sounds = {}
-        load_images(self, "assets/images")
-        load_sounds(self, "assets/sounds")
+        self.loaded_sounds = {}
+        self.load_images("assets/images")
+        self.load_sounds("assets/sounds")
 
-def load_images(manager, image_dir):
-    # Load images
-    if os.path.exists(image_dir):
-        for filename in os.listdir(image_dir):
-            if filename.endswith(".png"):
-                asset_name = filename.replace('.png', '')
-                manager.images[asset_name] = os.path.join(image_dir, filename)
+    def load_images(self, image_dir):
+        # Load images
+        if os.path.exists(image_dir):
+            for filename in os.listdir(image_dir):
+                if filename.endswith(".png"):
+                    asset_name = filename.replace('.png', '')
+                    self.images[asset_name] = os.path.join(image_dir, filename)
 
-def load_sounds(manager, sound_dir):
-    if os.path.exists(sound_dir):
-        for filename in os.listdir(sound_dir):
-            if filename.endswith(".mp3"):
-                asset_name = filename.replace('.mp3', '')
-                manager.sounds[asset_name] = SoundLoader.load(os.path.join(sound_dir, filename))
+    def load_sounds(self, sound_dir):
+        if os.path.exists(sound_dir):
+            for filename in os.listdir(sound_dir):
+                if filename.endswith(".mp3"):
+                    asset_name = filename.replace('.mp3', '')
+                    self.sounds[asset_name] = os.path.join(sound_dir, filename)
+
+    def get_sound(self, asset_name):
+        if asset_name in self.loaded_sounds:
+            return self.loaded_sounds[asset_name]
+
+        sound_path = self.sounds.get(asset_name)
+        if sound_path and os.path.exists(sound_path):
+            sound = SoundLoader.load(sound_path)
+            if sound:
+                self.loaded_sounds[asset_name] = sound
+                return sound
+        return None
 
 def load_background_image(self):
     self.bg = Image(source="./assets/images/background/mountains_purple_trees.png", size=(1920, 1080), fit_mode="contain")
