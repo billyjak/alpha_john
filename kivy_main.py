@@ -10,6 +10,7 @@ from kivy.clock import Clock
 class GameWidget(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        Window.size = (1280, 720)
 
         self.asset_manager = AssetManager()
         self.current_sound = None  # Track the currently playing sound
@@ -87,15 +88,13 @@ class GameWidget(Widget):
         anim.start(self.char_image)
         self.char_image.current_anim = anim
 
-    def on_key_up(self, window, key, scancode):
-        return True
 
     def update(self, dt):
         pass
 
 class GameApp(App):
     def build(self):
-        Window.fullscreen = True
+        Window.fullscreen = False
         return GameWidget()
 
 class AssetManager:
@@ -128,11 +127,11 @@ def load_background_music(self):
     # Background music
     self.music = SoundLoader.load("./assets/sounds/background/moonlight.mp3")
     self.music.loop = True
-    self.music.play()
+    # self.music.play()
 
 def add_image_widget(self):
     self.char_image = Image(size=(1800, 900), fit_mode="contain", opacity=0)
-    self.char_image.center = (self.bg.size[0] / 2, self.bg.size[1] / 2)
+    self.char_image.center = (Window.size[0] / 2, Window.size[1] / 2)
     self.char_image.current_anim = None
     self.add_widget(self.char_image)
 
